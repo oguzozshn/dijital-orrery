@@ -12,9 +12,94 @@
 
     <div id="loading" class="loading"><span></span>Model hazırlanıyor…</div>
 
-    <div class="scale-note" id="scale-note">
-      Boyutlar ve mesafeler gerçek ölçekte değildir — açısal ilişkiler gerçektir.
-    </div>
+    <p class="scale-note">
+      Boyutlar ve mesafeler gerçek ölçekte <strong>değildir</strong> — açısal ilişkiler gerçektir.
+    </p>
+
+    <!-- ------------------------------------------------ Bilgi paneli --- -->
+    <section class="panel panel--info" id="info-panel" aria-label="Bilgi paneli">
+      <header class="panel__head">
+        <h1>Dijital Orrery</h1>
+        <button type="button" class="panel__toggle" id="info-toggle" aria-expanded="true" title="Paneli daralt">−</button>
+      </header>
+
+      <div class="panel__body" id="info-body">
+        <div class="readout readout--date">
+          <span class="readout__value" id="out-date">—</span>
+          <span class="readout__sub" id="out-date-utc">—</span>
+        </div>
+
+        <div class="phase-row">
+          <canvas id="moon-canvas" width="112" height="112" aria-hidden="true"></canvas>
+          <div>
+            <div class="readout__label">Ay fazı</div>
+            <div class="readout__value" id="out-phase-name">—</div>
+            <div class="readout__sub"><span id="out-phase-pct">—</span> aydınlık</div>
+          </div>
+        </div>
+
+        <dl class="facts">
+          <div><dt>Takvim halkası</dt><dd id="out-month">—</dd></div>
+          <div><dt>Mevsim (K / G)</dt><dd id="out-season">—</dd></div>
+          <div><dt>Dünya ekliptik boylamı</dt><dd id="out-earth-lon">—</dd></div>
+          <div><dt>Dünya dönüş açısı</dt><dd id="out-earth-rot">—</dd></div>
+          <div><dt>Güneş uzaklığı</dt><dd id="out-earth-dist">—</dd></div>
+          <div><dt>Ay boylam / enlem</dt><dd id="out-moon-pos">—</dd></div>
+          <div><dt>Ay uzaklığı</dt><dd id="out-moon-dist">—</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------ Kamera açıları -- -->
+    <nav class="panel panel--views" aria-label="Kamera açıları">
+      <div class="readout__label">Kamera</div>
+      <div class="view-buttons">
+        <button type="button" data-view="top">Üstten</button>
+        <button type="button" data-view="perspective" class="is-active">Perspektif</button>
+        <button type="button" data-view="side">Yandan</button>
+        <button type="button" data-view="earth">Dünya</button>
+      </div>
+    </nav>
+
+    <!-- ------------------------------------------------ Zaman çubuğu ---- -->
+    <section class="timebar" aria-label="Zaman kontrolü">
+      <div class="timebar__row timebar__row--controls">
+        <button type="button" id="btn-play" class="btn btn--primary" title="Oynat / Duraklat (Boşluk)">
+          <span id="play-icon">▶</span><span id="play-label">Oynat</span>
+        </button>
+
+        <label class="field">
+          <span>Hız</span>
+          <select id="speed-select">
+            <option value="3600">1 saat / sn</option>
+            <option value="21600">6 saat / sn</option>
+            <option value="86400" selected>1 gün / sn</option>
+            <option value="259200">3 gün / sn</option>
+            <option value="864000">10 gün / sn</option>
+            <option value="2592000">30 gün / sn</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Tarih ve saat (UTC)</span>
+          <input type="datetime-local" id="datetime-input" step="60" />
+        </label>
+
+        <div class="year-stepper" role="group" aria-label="Yıl">
+          <button type="button" id="year-prev" title="Önceki yıl">‹</button>
+          <output id="year-out">—</output>
+          <button type="button" id="year-next" title="Sonraki yıl">›</button>
+        </div>
+
+        <button type="button" id="btn-now" class="btn" title="Şimdiki zamana dön">Şimdi</button>
+      </div>
+
+      <div class="timebar__row timebar__row--slider">
+        <input type="range" id="time-slider" min="0" max="8783" step="1" value="0"
+               aria-label="Yıl içindeki konum" />
+        <div class="slider-ticks" id="slider-ticks" aria-hidden="true"></div>
+      </div>
+    </section>
 
     <script type="module" src="/src/main.js"></script>
   </body>

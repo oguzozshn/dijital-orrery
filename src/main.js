@@ -10,6 +10,9 @@ import { loadTextures } from './scene/textures.js';
 import {
   earthEcliptic, moonEcliptic, earthRotationDeg, moonPhaseInfo, seasonName,
 } from './astro/calculations.js';
+import { createTimeControls } from './ui/timeControls.js';
+import { createInfoPanel } from './ui/infoPanel.js';
+import { createCameraViews } from './ui/cameraViews.js';
 
 const canvas = document.getElementById('scene');
 const loading = document.getElementById('loading');
@@ -54,21 +57,38 @@ const calendarRing = createCalendarRing(new Date().getUTCFullYear());
 calendarRing.group.position.y = SCALE.ringY;
 scene.add(calendarRing.group);
 
+// Gunesin ulasamadigi mekanik yuzeylerin tamamen siyah kalmamasi icin.
 scene.add(new THREE.AmbientLight(0x2a3550, 0.55));
 scene.add(new THREE.HemisphereLight(0x4a5f8a, 0x0a0d14, 0.35));
 
+// --- Paylasilabilir baglanti ----------------------------------------------
+let urlTimer = 0;
+function scheduleUrlSync(date) {
+  clearTimeout(urlTimer);
+  urlTimer = setTimeout(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('t', date.toISOString().slice(0, 19) + 'Z');
+    history.replaceState(null, '', url);
+  }, 400);
+}
+
+function readDateFromUrl() {
+  const raw = new URLSearchParams(window.location.search).get('t');
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 // --- Uygulama durumu -------------------------------------------------------
 const state = {
-  date: new Date(),
-  /** Son hesaplanan astronomik degerler (bilgi paneli bunlari okur). */
+  date: readDateFromUrl() ?? new Date(),
   readout: null,
 };
 
-/** Sahne guncellendiginde tetiklenen dinleyiciler (UI bunlara abone olur). */
-const listeners = new Set();
-export function onUpdate(fn) { listeners.add(fn); return () => listeners.delete(fn); }
-
 let earthMoonArm = null;
+let infoPanel = null;
+let timeControls = null;
+let cameraViews = null;
 
 function applyDate(date) {
   state.date = date;
@@ -97,11 +117,29 @@ function applyDate(date) {
     month: calendarRing.monthAt(earth.longitude),
   };
 
-  for (const fn of listeners) fn(state.readout);
+  infoPanel?.update(state.readout);
+  timeControls?.sync(date);
+  scheduleUrlSync(date);
 }
 
-export function setDate(date) { applyDate(date); }
-export function getState() { return state; }
+// --- Arayuz ----------------------------------------------------------------
+infoPanel = createInfoPanel();
+timeControls = createTimeControls({
+  getDate: () => state.date,
+  setDate: applyDate,
+});
+
+const earthWorldPos = new THREE.Vector3();
+cameraViews = createCameraViews({
+  camera,
+  controls,
+  getEarthPosition: () => {
+    if (earthMoonArm) earthMoonArm.earthSystem.getWorldPosition(earthWorldPos);
+    return earthWorldPos;
+  },
+});
+
+applyDate(state.date);
 
 // --- Texture yuklendikten sonra Dunya + Ay ---------------------------------
 const { textures, ready } = loadTextures();
@@ -115,7 +153,7 @@ ready
   })
   .catch((err) => {
     console.error(err);
-    loading.textContent = 'Texture yüklenemedi: ' + err.message;
+    loading.innerHTML = `<span style="border:0"></span>Texture yüklenemedi: ${err.message}`;
   });
 
 // --- Boyutlandirma ---------------------------------------------------------
@@ -130,7 +168,14 @@ window.addEventListener('resize', resize);
 resize();
 
 // --- Dongu -----------------------------------------------------------------
-function animate() {
+let lastFrame = performance.now();
+
+function animate(now) {
+  const dt = Math.min((now - lastFrame) / 1000, 0.1);
+  lastFrame = now;
+
+  timeControls.tick(dt);
+  cameraViews.update(dt);
   controls.update();
   renderer.render(scene, camera);
 }
@@ -140,6 +185,7 @@ renderer.setAnimationLoop(animate);
 if (import.meta.env.DEV) {
   window.__orrery = {
     scene, camera, controls, renderer, sun, calendarRing, SCALE, state,
-    setDate, get arm() { return earthMoonArm; },
+    setDate: applyDate, cameraViews,
+    get arm() { return earthMoonArm; },
   };
 }
