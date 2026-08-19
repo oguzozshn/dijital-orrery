@@ -1,9 +1,10 @@
 # Dijital Orrery — Güneş · Dünya · Ay
 
-LEGO Technic tarzı mekanik bir **orrery** modelinin dijital, 3D ve tarayıcıda
-çalışan karşılığı: merkezde dikey mil üzerinde Güneş, tabanda ay etiketli
-takvim halkası, ve seçilen tarihe göre halka üzerinde doğru açıya dönen
-Dünya + Ay kolu.
+LEGO Technic tarzı bir **orrery** modelinin dijital, 3D ve tarayıcıda çalışan
+karşılığı — ama mekanik değil: Güneş, Dünya ve Ay uzayda serbest durur.
+Onları yerinde tutan tek şey efemeristen gelen konumlarıdır; kol, mil, taban
+ya da bağlantı çubuğu yoktur. Takvim halkası, yörüngenin dışında aynı düzlemde
+yüzen bir kadran olarak seçilen tarihin yörünge açısını okutur.
 
 ```bash
 npm install
@@ -16,9 +17,9 @@ npm run build
 
 | Etkileşim | Ne yapar |
 |---|---|
-| Fareyle sürükle | Modeli dikey mil etrafında çevirir (elle çevirme hissi) |
+| Fareyle sürükle | Sahneyi dikey eksen etrafında çevirir |
 | Tekerlek / pinch | Yakınlaştırma |
-| Alt kaydırıcı | Yıl içinde saat çözünürlüğünde gezinme — kol halkada döner |
+| Alt kaydırıcı | Yıl içinde saat çözünürlüğünde gezinme — Dünya yörüngede ilerler |
 | Tarih/saat kutusu | Belirli bir ana atlama (UTC) |
 | ‹ 2026 › | Yıl değiştirme (halka o yılın gerçek açılarıyla yeniden kurulur) |
 | ▶ Oynat + hız | 1 saat/sn ile 30 gün/sn arası otomatik akış |
@@ -45,13 +46,13 @@ ağırlığı getirirdi.
 Ölçekler **stilizedir** (fiziksel modelde olduğu gibi), açısal ilişkiler
 gerçektir:
 
-- **Kolun açısı** `HelioVector(Body.Earth)`'ten türetilen gerçek ekliptik
-  boylamdır — "365 günü 360 dereceye böl" değil. Bu yüzden Ocak dilimi
+- **Dünya'nın yörünge açısı** `HelioVector(Body.Earth)`'ten türetilen gerçek
+  ekliptik boylamdır — "365 günü 360 dereceye böl" değil. Bu yüzden Ocak dilimi
   31.56°, Temmuz dilimi 29.59°'dir: Dünya günberide (ocak başı) daha hızlıdır.
-- **Eksen eğikliği** 23.4393° ve *uzayda sabit yönlüdür*. Dünya sistemi bilinçli
-  olarak kolun çocuğu değildir; çocuğu olsaydı eksen kolla birlikte döner ve
-  mevsimler kaybolurdu. Doğrulama: kutup–Güneş açısı Haziran gündönümünde
-  66.56°, Aralıkta 113.44°, ekinokslarda 90.00°.
+- **Eksen eğikliği** 23.4393° ve *uzayda sabit yönlüdür*. Eğiklik grubu yörünge
+  konumundan bağımsız tutulur; konumla birlikte dönseydi mevsimler kaybolurdu.
+  Doğrulama: kutup–Güneş açısı Haziran gündönümünde 66.56°, Aralıkta 113.44°,
+  ekinokslarda 90.00°.
 - **Dünya'nın dönüşü** Greenwich görünür yıldız zamanından gelir; 24 saatte
   360.9856° ilerler.
 - **Ay** `GeoVector(Body.Moon)` ile gerçek yönünde durur (~5.1° yörünge eğimi
@@ -69,8 +70,10 @@ gerçektir:
 +Y = ekliptik kuzey kutbu
 ```
 
-Ekliptik düzlem `y = 0`; takvim halkası referans modeldeki gibi bunun altında,
-taban seviyesindedir (`SCALE.ringY`).
+Her şey ekliptik düzlemdedir (`y = 0`). Dünya 22 birim yarıçapta döner,
+Ay ona 3.4 birim uzakta; takvim halkası 27.5–31.8 arasında yüzer, yani Ay'ın
+en dış konumu (25.4) ile arasında boşluk kalır ve hiçbir cisim halkaya
+değmez.
 
 ### Takvim halkasının kapanması
 
@@ -87,9 +90,9 @@ src/
   config.js               ölçekler, renkler, ekliptik→sahne dönüşümü
   astro/calculations.js   astronomy-engine sarmalayıcıları
   scene/
-    sun.js                Güneş, dikey mil, taban göbeği
-    calendarRing.js       takvim halkası, ay dilimleri, mevsim işaretleri
-    earthMoonArm.js       mekanik kol + Dünya/Ay alt sistemi
+    sun.js                Güneş küresi, korona ve ışık kaynağı
+    calendarRing.js       yüzen takvim kadranı, dilimler, gösterge
+    earthMoonSystem.js    serbest duran Dünya + Ay ve yörünge izleri
     earthMaterial.js      Dünya ve Ay shader'ları (terminatör, şehir ışıkları)
     starfield.js          deterministik yıldız arka planı
     textures.js           texture yükleyici

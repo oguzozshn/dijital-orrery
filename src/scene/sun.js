@@ -2,44 +2,13 @@ import * as THREE from 'three';
 import { SCALE, COLORS } from '../config.js';
 
 /**
- * Sahnenin merkezi: dikey mil uzerinde duran, isik yayan Gunes.
- * Referans LEGO modeldeki gibi mil tabandan yukari dogru gecer.
+ * Sahnenin merkezindeki Gunes: uzayda serbest duran, isik yayan bir kure.
+ * Mekanik mil, taban ya da tasiyici yoktur -- cisimleri yerinde tutan tek
+ * sey yorunge geometrisidir.
  */
 export function createSun() {
   const group = new THREE.Group();
   group.name = 'sun-assembly';
-
-  // --- Dikey mil -----------------------------------------------------------
-  const shaftHeight = SCALE.shaftTop - SCALE.shaftBottom;
-  const shaft = new THREE.Mesh(
-    new THREE.CylinderGeometry(SCALE.shaftRadius, SCALE.shaftRadius, shaftHeight, 24),
-    new THREE.MeshStandardMaterial({
-      color: COLORS.metal, metalness: 0.85, roughness: 0.35,
-    }),
-  );
-  shaft.position.y = (SCALE.shaftTop + SCALE.shaftBottom) / 2;
-  group.add(shaft);
-
-  // Mil uzerindeki teknik detay halkalari.
-  const collarMat = new THREE.MeshStandardMaterial({
-    color: COLORS.accent, metalness: 0.6, roughness: 0.4,
-  });
-  for (const y of [SCALE.shaftTop - 0.5, SCALE.sunRadius + 0.9, -SCALE.sunRadius - 0.9]) {
-    const collar = new THREE.Mesh(
-      new THREE.CylinderGeometry(SCALE.shaftRadius * 1.7, SCALE.shaftRadius * 1.7, 0.28, 24),
-      collarMat,
-    );
-    collar.position.y = y;
-    group.add(collar);
-  }
-
-  // --- Taban gobegi --------------------------------------------------------
-  const hub = new THREE.Mesh(
-    new THREE.CylinderGeometry(SCALE.baseHubRadius, SCALE.baseHubRadius * 1.1, 0.7, 48),
-    new THREE.MeshStandardMaterial({ color: COLORS.metalDark, metalness: 0.7, roughness: 0.55 }),
-  );
-  hub.position.y = SCALE.shaftBottom + 0.35;
-  group.add(hub);
 
   // --- Gunes kuresi --------------------------------------------------------
   const sunMesh = new THREE.Mesh(
@@ -49,17 +18,17 @@ export function createSun() {
   sunMesh.name = 'sun';
   group.add(sunMesh);
 
-  // Yuzey dalgalanmasi hissi veren yari saydam dis katman.
+  // Yuzeyin hemen ustunde, sicak tonlu yari saydam katman.
   const corona = new THREE.Mesh(
-    new THREE.SphereGeometry(SCALE.sunRadius * 1.06, 48, 32),
+    new THREE.SphereGeometry(SCALE.sunRadius * 1.07, 48, 32),
     new THREE.MeshBasicMaterial({
-      color: COLORS.sun, transparent: true, opacity: 0.35,
+      color: COLORS.sun, transparent: true, opacity: 0.32,
       blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
     }),
   );
   group.add(corona);
 
-  // --- Isik hüzmesi (sprite) ----------------------------------------------
+  // --- Isik hüzmesi --------------------------------------------------------
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: createGlowTexture(),
     color: COLORS.sun,
@@ -68,7 +37,7 @@ export function createSun() {
     depthWrite: false,
     depthTest: false,
     toneMapped: false,
-    opacity: 0.55,
+    opacity: 0.5,
   }));
   glow.scale.setScalar(SCALE.sunRadius * 7);
   glow.renderOrder = -1;
@@ -76,9 +45,8 @@ export function createSun() {
 
   // --- Isik kaynagi --------------------------------------------------------
   // Mesafeye gore sonumleme kapali (decay 0): stilize olcekte Dunya ve Ay'in
-  // esit ve tam aydinlanmasi icin.
-  const light = new THREE.PointLight(0xfff2d8, 3.2, 0, 0);
-  light.castShadow = false;
+  // dogru sekilde aydinlanmasi icin.
+  const light = new THREE.PointLight(0xfff2d8, 3.0, 0, 0);
   group.add(light);
 
   return { group, sunMesh, light, glow };

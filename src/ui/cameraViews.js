@@ -11,21 +11,21 @@ export function createCameraViews({ camera, controls, getEarthPosition }) {
 
   const PRESETS = {
     top: () => ({
-      position: new THREE.Vector3(0, 74, 0.001),
+      position: new THREE.Vector3(0, 88, 0.001),
       target: new THREE.Vector3(0, 0, 0),
-      minDistance: 12,
+      minDistance: 8,
       follow: false,
     }),
     perspective: () => ({
-      position: new THREE.Vector3(0, 26, 46),
+      position: new THREE.Vector3(0, 32, 56),
       target: new THREE.Vector3(0, 0, 0),
-      minDistance: 12,
+      minDistance: 8,
       follow: false,
     }),
     side: () => ({
-      position: new THREE.Vector3(0, 4.5, 62),
+      position: new THREE.Vector3(0, 5, 76),
       target: new THREE.Vector3(0, 0, 0),
-      minDistance: 12,
+      minDistance: 8,
       follow: false,
     }),
     earth: () => {
@@ -35,7 +35,7 @@ export function createCameraViews({ camera, controls, getEarthPosition }) {
       const position = earth.clone()
         .add(outward.multiplyScalar(SCALE.moonOrbit * 2.2))
         .add(new THREE.Vector3(0, SCALE.moonOrbit * 1.15, 0));
-      return { position, target: earth.clone(), minDistance: 2, follow: true };
+      return { position, target: earth.clone(), minDistance: 1.8, follow: true };
     },
   };
 

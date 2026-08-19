@@ -4,16 +4,20 @@ import { monthRingAngles, seasonMarkers } from '../astro/calculations.js';
 import { createTextSprite } from './textSprite.js';
 
 /**
- * Tabandaki takvim halkasi: referans LEGO modeldeki "Dec / Jan / Feb ..."
- * etiketli halkanin dijital karsiligi.
+ * Takvim halkasi: ekliptik duzlemde, Dunya'nin yorungesinin DISINDA yuzen
+ * ince bir kadran. Referans modeldeki "Dec / Jan / Feb ..." halkasinin
+ * karsiligi, ama bir taban ya da tasiyici degil -- sahnede hicbir seye
+ * degmez, sadece yorunge acisini okutur.
  *
  * Ay dilimlerinin acilari, o yilin her ayinin 1'inde Dunya'nin GERCEK
  * ekliptik boylamindan turetilir. Bu yuzden dilimler tam 30 derece degildir:
- * Dunya, gunberi (ocak basi) civarinda daha hizli hareket ettigi icin kis
- * aylarinin dilimleri birkac derece genistir.
+ * Dunya gunberide (ocak basi) daha hizli hareket ettigi icin kis aylarinin
+ * dilimleri birkac derece genistir.
  */
 
 const TOP_Y = SCALE.ringThickness / 2;
+const BAND_INNER = SCALE.ringInner + 0.3;
+const BAND_OUTER = SCALE.ringOuter - 1.1;
 
 export function createCalendarRing(initialYear) {
   const group = new THREE.Group();
@@ -22,12 +26,29 @@ export function createCalendarRing(initialYear) {
   const staticParts = buildStaticRing();
   group.add(staticParts);
 
-  // Yila gore degisen kisimlar (ay dilimleri, etiketler, mevsim isaretleri).
   let dynamic = new THREE.Group();
   group.add(dynamic);
 
+  // Kolun yerini alan gosterge: halkanin ic kenarinda, Dunya'nin bulundugu
+  // boylamda duran kucuk isikli isaret. Fiziksel bir baglanti degil.
+  const pointer = buildPointer();
+  group.add(pointer.group);
+
+  // Icinde bulunulan ay diliminin vurgusu.
+  const highlight = new THREE.Mesh(
+    new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({
+      color: COLORS.accent, transparent: true, opacity: 0.22,
+      toneMapped: false, depthWrite: false, side: THREE.DoubleSide,
+    }),
+  );
+  highlight.position.y = TOP_Y + 0.006;
+  highlight.renderOrder = 2;
+  group.add(highlight);
+
   let year = null;
   let monthAngles = [];
+  let highlightedMonth = -1;
 
   function setYear(nextYear) {
     if (nextYear === year) return monthAngles;
@@ -41,7 +62,32 @@ export function createCalendarRing(initialYear) {
     dynamic.add(buildMonthLabels(monthAngles));
     dynamic.add(buildSeasonMarkers(year));
     group.add(dynamic);
+
+    highlightedMonth = -1; // yeni dilim acilarina gore yeniden cizilsin
     return monthAngles;
+  }
+
+  function monthAt(longitude) {
+    for (const m of monthAngles) {
+      const delta = ((longitude - m.startLongitude) % 360 + 360) % 360;
+      if (delta < m.span) return m;
+    }
+    return monthAngles[0];
+  }
+
+  /** Gostergeyi ve ay vurgusunu Dunya'nin boylamina tasir. */
+  function setLongitude(longitude) {
+    pointer.setLongitude(longitude);
+
+    const month = monthAt(longitude);
+    if (month.month !== highlightedMonth) {
+      highlightedMonth = month.month;
+      highlight.geometry.dispose();
+      highlight.geometry = flatRingGeometry(
+        BAND_INNER, BAND_OUTER, 64, month.startLongitude * DEG, month.span * DEG,
+      );
+    }
+    return month;
   }
 
   setYear(initialYear);
@@ -49,19 +95,16 @@ export function createCalendarRing(initialYear) {
   return {
     group,
     setYear,
+    setLongitude,
+    monthAt,
     get year() { return year; },
     get monthAngles() { return monthAngles; },
-    /** Verilen ekliptik boylamin hangi ay dilimine dustugu. */
-    monthAt(longitude) {
-      for (const m of monthAngles) {
-        const delta = ((longitude - m.startLongitude) % 360 + 360) % 360;
-        if (delta < m.span) return m;
-      }
-      return monthAngles[0];
-    },
     dispose() {
       disposeGroup(staticParts);
       disposeGroup(dynamic);
+      disposeGroup(pointer.group);
+      highlight.geometry.dispose();
+      highlight.material.dispose();
     },
   };
 }
@@ -73,88 +116,110 @@ function buildStaticRing() {
   const t = SCALE.ringThickness;
 
   const faceMat = new THREE.MeshStandardMaterial({
-    color: COLORS.ringFace, metalness: 0.55, roughness: 0.6,
+    color: COLORS.ringFace, metalness: 0.3, roughness: 0.75,
+    transparent: true, opacity: 0.88,
   });
   const wallMat = new THREE.MeshStandardMaterial({
-    color: COLORS.metalDark, metalness: 0.7, roughness: 0.5, side: THREE.DoubleSide,
+    color: COLORS.metalDark, metalness: 0.4, roughness: 0.65, side: THREE.DoubleSide,
   });
 
-  // Alt yuz
-  const bottom = flatRing(SCALE.ringInner, SCALE.ringOuter, faceMat);
+  const bottom = new THREE.Mesh(flatRingGeometry(SCALE.ringInner, SCALE.ringOuter), faceMat);
   bottom.position.y = -t / 2;
-  bottom.rotation.x = Math.PI; // asagi baksin
+  bottom.rotation.x = Math.PI;
   g.add(bottom);
 
-  // Ust yuz (ay dilimleri bunun uzerine cizilir)
-  const top = flatRing(SCALE.ringInner, SCALE.ringOuter, faceMat);
+  const top = new THREE.Mesh(flatRingGeometry(SCALE.ringInner, SCALE.ringOuter), faceMat);
   top.position.y = t / 2;
   g.add(top);
 
-  // Dis ve ic duvarlar
-  for (const [radius, mat] of [[SCALE.ringOuter, wallMat], [SCALE.ringInner, wallMat]]) {
-    const wall = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius, radius, t, 160, 1, true), mat,
-    );
-    g.add(wall);
+  for (const radius of [SCALE.ringOuter, SCALE.ringInner]) {
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, t, 200, 1, true), wallMat));
   }
 
-  // Dis kenardaki turuncu vurgu seridi (referans modeldeki turuncu halka).
+  // Dis kenardaki turuncu vurgu seridi.
   const accentBand = new THREE.Mesh(
-    new THREE.CylinderGeometry(SCALE.ringOuter + 0.02, SCALE.ringOuter + 0.02, t * 0.34, 160, 1, true),
+    new THREE.CylinderGeometry(SCALE.ringOuter + 0.015, SCALE.ringOuter + 0.015, t * 0.5, 200, 1, true),
     new THREE.MeshStandardMaterial({
-      color: COLORS.accent, metalness: 0.35, roughness: 0.45, side: THREE.DoubleSide,
-      emissive: new THREE.Color(COLORS.accent).multiplyScalar(0.12),
+      color: COLORS.accent, metalness: 0.2, roughness: 0.5, side: THREE.DoubleSide,
+      emissive: new THREE.Color(COLORS.accent).multiplyScalar(0.18),
     }),
   );
   g.add(accentBand);
 
-  // 10 derecelik ince taksimat cizgileri.
-  const tickMat = new THREE.MeshBasicMaterial({ color: 0x7d8898, toneMapped: false });
-  const tickGeom = new THREE.PlaneGeometry(0.9, 0.06);
+  // 10 derecelik taksimat.
+  const tickMat = new THREE.MeshBasicMaterial({
+    color: 0x7d8898, toneMapped: false, transparent: true, opacity: 0.7,
+  });
+  const tickGeom = new THREE.PlaneGeometry(0.75, 0.05);
   tickGeom.rotateX(-Math.PI / 2);
   for (let deg = 0; deg < 360; deg += 10) {
     const tick = new THREE.Mesh(tickGeom, tickMat);
-    const p = eclipticDirection(deg, SCALE.ringOuter - 0.75);
+    const p = eclipticDirection(deg, SCALE.ringOuter - 0.62);
     tick.position.set(p.x, TOP_Y + 0.004, p.z);
     tick.rotation.y = deg * DEG;
     g.add(tick);
   }
 
-  // Yorunge kilavuz cizgisi (Dunya'nin gectigi yaricap).
-  const orbitLine = new THREE.Mesh(
-    flatRingGeometry(SCALE.orbitRadius - 0.05, SCALE.orbitRadius + 0.05, 256),
-    new THREE.MeshBasicMaterial({
-      color: COLORS.orbitLine, transparent: true, opacity: 0.75, toneMapped: false,
-    }),
-  );
-  orbitLine.position.y = TOP_Y + 0.006;
-  g.add(orbitLine);
-
   return g;
+}
+
+/** Halkanin ic kenarinda duran, Dunya'nin boylamini gosteren isaret. */
+function buildPointer() {
+  const group = new THREE.Group();
+
+  const mat = new THREE.MeshBasicMaterial({ color: COLORS.accent, toneMapped: false });
+
+  // Ice dogru bakan ucgen.
+  const head = new THREE.Mesh(new THREE.ConeGeometry(0.36, 1.0, 3), mat);
+  head.rotation.x = -Math.PI / 2;   // ucu -Z yonune
+  head.rotation.y = Math.PI / 2;    // ...oradan ice dogru cevir
+  head.position.set(SCALE.ringInner - 0.62, TOP_Y, 0);
+  group.add(head);
+
+  // Yumusak parlama, gostergenin gozden kacmamasi icin.
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: dotTexture(),
+    color: COLORS.accentSoft,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+    opacity: 0.55,
+  }));
+  glow.scale.setScalar(2.6);
+  glow.position.set(SCALE.ringInner - 0.62, TOP_Y, 0);
+  group.add(glow);
+
+  return {
+    group,
+    setLongitude(longitude) { group.rotation.y = longitude * DEG; },
+  };
 }
 
 function buildMonthSectors(monthAngles) {
   const g = new THREE.Group();
-  const inner = SCALE.ringInner + 0.35;
-  const outer = SCALE.ringOuter - 1.35;
 
-  const matA = new THREE.MeshStandardMaterial({ color: 0x353d47, metalness: 0.4, roughness: 0.7 });
-  const matB = new THREE.MeshStandardMaterial({ color: COLORS.ringGroove, metalness: 0.4, roughness: 0.7 });
+  const matA = new THREE.MeshStandardMaterial({
+    color: 0x323a45, metalness: 0.2, roughness: 0.85, transparent: true, opacity: 0.9,
+  });
+  const matB = new THREE.MeshStandardMaterial({
+    color: COLORS.ringGroove, metalness: 0.2, roughness: 0.85, transparent: true, opacity: 0.9,
+  });
 
   for (const m of monthAngles) {
-    const geom = flatRingGeometry(inner, outer, 64, m.startLongitude * DEG, m.span * DEG);
+    const geom = flatRingGeometry(BAND_INNER, BAND_OUTER, 64, m.startLongitude * DEG, m.span * DEG);
     const mesh = new THREE.Mesh(geom, m.month % 2 === 0 ? matA : matB);
     mesh.position.y = TOP_Y + 0.002;
     g.add(mesh);
 
     // Ay siniri cizgisi
     const border = new THREE.Mesh(
-      new THREE.BoxGeometry(SCALE.ringOuter - SCALE.ringInner - 0.5, 0.02, 0.09),
+      new THREE.BoxGeometry(SCALE.ringOuter - SCALE.ringInner - 0.4, 0.015, 0.07),
       new THREE.MeshBasicMaterial({ color: 0x93a2b6, toneMapped: false }),
     );
     const mid = (SCALE.ringInner + SCALE.ringOuter) / 2;
     const p = eclipticDirection(m.startLongitude, mid);
-    border.position.set(p.x, TOP_Y + 0.012, p.z);
+    border.position.set(p.x, TOP_Y + 0.01, p.z);
     border.rotation.y = m.startLongitude * DEG;
     g.add(border);
   }
@@ -165,10 +230,10 @@ function buildMonthLabels(monthAngles) {
   const g = new THREE.Group();
   for (const m of monthAngles) {
     const sprite = createTextSprite(MONTHS_TR[m.month], {
-      color: '#dce6f7', fontSize: 88, worldHeight: 1.9,
+      color: '#dce6f7', fontSize: 88, worldHeight: 1.85,
     });
     const p = eclipticDirection(m.midLongitude, SCALE.labelRadius);
-    sprite.position.set(p.x, TOP_Y + 0.9, p.z);
+    sprite.position.set(p.x, TOP_Y + 0.55, p.z);
     g.add(sprite);
   }
   return g;
@@ -176,20 +241,19 @@ function buildMonthLabels(monthAngles) {
 
 function buildSeasonMarkers(year) {
   const g = new THREE.Group();
-  const markers = seasonMarkers(year);
   const markerMat = new THREE.MeshBasicMaterial({ color: COLORS.accentSoft, toneMapped: false });
 
-  for (const marker of markers) {
-    const pin = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.9, 12), markerMat);
-    const p = eclipticDirection(marker.longitude, SCALE.ringOuter - 0.75);
-    pin.position.set(p.x, TOP_Y + 0.45, p.z);
+  for (const marker of seasonMarkers(year)) {
+    const pin = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), markerMat);
+    const p = eclipticDirection(marker.longitude, SCALE.ringOuter - 0.62);
+    pin.position.set(p.x, TOP_Y + 0.16, p.z);
     g.add(pin);
 
     const label = createTextSprite(marker.label, {
-      color: '#ffc48a', fontSize: 64, worldHeight: 1.15, bold: false,
+      color: '#ffc48a', fontSize: 64, worldHeight: 1.0, bold: false,
     });
-    const lp = eclipticDirection(marker.longitude, SCALE.ringInner - 1.6);
-    label.position.set(lp.x, TOP_Y + 0.7, lp.z);
+    const lp = eclipticDirection(marker.longitude, SCALE.ringOuter + 2.2);
+    label.position.set(lp.x, TOP_Y + 1.5, lp.z);
     g.add(label);
   }
   return g;
@@ -198,7 +262,7 @@ function buildSeasonMarkers(year) {
 // ---------------------------------------------------------------------------
 
 /** XZ duzleminde yatay halka geometrisi (aci = ekliptik boylam). */
-function flatRingGeometry(inner, outer, segments = 160, thetaStart = 0, thetaLength = Math.PI * 2) {
+function flatRingGeometry(inner, outer, segments = 200, thetaStart = 0, thetaLength = Math.PI * 2) {
   const geom = new THREE.RingGeometry(inner, outer, segments, 1, thetaStart, thetaLength);
   // RingGeometry XY duzlemindedir; -90 derece X donusu onu XZ duzlemine tasir
   // ve aci parametresi dogrudan ekliptik boylama karsilik gelir.
@@ -206,8 +270,19 @@ function flatRingGeometry(inner, outer, segments = 160, thetaStart = 0, thetaLen
   return geom;
 }
 
-function flatRing(inner, outer, material) {
-  return new THREE.Mesh(flatRingGeometry(inner, outer), material);
+function dotTexture(size = 128) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, 'rgba(255,255,255,0.9)');
+  g.addColorStop(0.3, 'rgba(255,165,82,0.45)');
+  g.addColorStop(1, 'rgba(255,122,26,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
 function disposeGroup(group) {

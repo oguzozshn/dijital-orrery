@@ -23,27 +23,21 @@ export const RAD = 180 / Math.PI;
 export const OBLIQUITY_DEG = 23.4392911;
 
 export const SCALE = {
-  sunRadius: 3.2,
-  shaftRadius: 0.3,
-  shaftTop: 6.6,
-  shaftBottom: -4.4,
-  baseHubRadius: 5.2,
+  sunRadius: 3.0,
 
-  // Ekliptik duzlem (Dunya'nin yorungesi) y = 0'dadir; takvim halkasi
-  // referans modeldeki gibi bunun biraz altinda, taban seviyesinde durur.
-  ringY: -3.4,
+  // Cisimlerin tamami ekliptik duzlemde (y = 0) serbest durur; hicbir
+  // mekanik baglanti, mil ya da taban yoktur.
+  orbitRadius: 22,      // Dunya'nin yorunge yaricapi
+  earthRadius: 1.2,
+  moonOrbit: 3.4,
+  moonRadius: 0.33,
 
-  orbitRadius: 24,      // takvim halkasi = Dunya'nin yorunge yaricapi
-  ringInner: 21.6,
-  ringOuter: 26.4,
-  ringThickness: 0.55,
-  labelRadius: 28.6,
-
-  earthRadius: 1.25,
-  moonOrbit: 4.0,
-  moonRadius: 0.34,
-
-  armWidth: 0.42,
+  // Takvim halkasi yorungenin DISINDA, ayni duzlemde yuzen bir kadran.
+  // Ic yaricapi Ay'in en dis konumundan (22 + 3.4 = 25.4) uzak tutulur.
+  ringInner: 27.5,
+  ringOuter: 31.8,
+  ringThickness: 0.22,
+  labelRadius: 34,
 };
 
 export const COLORS = {

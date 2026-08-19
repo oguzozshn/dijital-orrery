@@ -5,7 +5,7 @@ import { SCALE, COLORS } from './config.js';
 import { createSun } from './scene/sun.js';
 import { createCalendarRing } from './scene/calendarRing.js';
 import { createStarfield } from './scene/starfield.js';
-import { createEarthMoonArm } from './scene/earthMoonArm.js';
+import { createEarthMoonSystem } from './scene/earthMoonSystem.js';
 import { loadTextures } from './scene/textures.js';
 import {
   earthEcliptic, moonEcliptic, earthRotationDeg, moonPhaseInfo, seasonName,
@@ -30,7 +30,7 @@ scene.background = new THREE.Color(COLORS.background);
 
 // --- Kamera ----------------------------------------------------------------
 const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 4000);
-camera.position.set(0, 26, 46);
+camera.position.set(0, 32, 56);
 
 // Fiziksel modeli elle cevirme hissi: yatay eksen serbest, dikey aci sinirli.
 const controls = new OrbitControls(camera, canvas);
@@ -38,8 +38,8 @@ controls.target.set(0, 0, 0);
 controls.enableDamping = true;
 controls.dampingFactor = 0.07;
 controls.enablePan = false;
-controls.minDistance = 12;
-controls.maxDistance = 140;
+controls.minDistance = 8;
+controls.maxDistance = 190;
 controls.minPolarAngle = 6 * (Math.PI / 180);
 controls.maxPolarAngle = 96 * (Math.PI / 180);
 controls.rotateSpeed = 0.75;
@@ -54,7 +54,6 @@ const sun = createSun();
 scene.add(sun.group);
 
 const calendarRing = createCalendarRing(new Date().getUTCFullYear());
-calendarRing.group.position.y = SCALE.ringY;
 scene.add(calendarRing.group);
 
 // Gunesin ulasamadigi mekanik yuzeylerin tamamen siyah kalmamasi icin.
@@ -85,7 +84,7 @@ const state = {
   readout: null,
 };
 
-let earthMoonArm = null;
+let earthMoonSystem = null;
 let infoPanel = null;
 let timeControls = null;
 let cameraViews = null;
@@ -99,8 +98,9 @@ function applyDate(date) {
   const phase = moonPhaseInfo(date);
 
   calendarRing.setYear(date.getUTCFullYear());
+  const month = calendarRing.setLongitude(earth.longitude);
 
-  earthMoonArm?.update({
+  earthMoonSystem?.update({
     earthLongitude: earth.longitude,
     earthRotationDeg: rotation,
     moonVec: moon.vec,
@@ -114,7 +114,7 @@ function applyDate(date) {
     rotation,
     phase,
     season: seasonName(date),
-    month: calendarRing.monthAt(earth.longitude),
+    month,
   };
 
   infoPanel?.update(state.readout);
@@ -134,7 +134,7 @@ cameraViews = createCameraViews({
   camera,
   controls,
   getEarthPosition: () => {
-    if (earthMoonArm) earthMoonArm.earthSystem.getWorldPosition(earthWorldPos);
+    if (earthMoonSystem) earthMoonSystem.earthSystem.getWorldPosition(earthWorldPos);
     return earthWorldPos;
   },
 });
@@ -146,8 +146,8 @@ const { textures, ready } = loadTextures();
 
 ready
   .then(() => {
-    earthMoonArm = createEarthMoonArm(textures);
-    scene.add(earthMoonArm.group);
+    earthMoonSystem = createEarthMoonSystem(textures);
+    scene.add(earthMoonSystem.group);
     applyDate(state.date);
     loading.classList.add('hidden');
   })
@@ -186,6 +186,6 @@ if (import.meta.env.DEV) {
   window.__orrery = {
     scene, camera, controls, renderer, sun, calendarRing, SCALE, state,
     setDate: applyDate, cameraViews,
-    get arm() { return earthMoonArm; },
+    get bodies() { return earthMoonSystem; },
   };
 }
