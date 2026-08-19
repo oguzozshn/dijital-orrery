@@ -44,13 +44,11 @@ export const COLORS = {
   background: 0x05070c,
   sun: 0xffcf6b,
   sunCore: 0xfff4d6,
-  metal: 0x3a4048,
   metalDark: 0x21262d,
   accent: 0xff7a1a,
   accentSoft: 0xffa552,
   ringFace: 0x2a3038,
   ringGroove: 0x171b21,
-  text: 0xe8eefb,
   orbitLine: 0x5c6a7d,
 };
 
