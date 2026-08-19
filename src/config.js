@@ -25,9 +25,13 @@ export const OBLIQUITY_DEG = 23.4392911;
 export const SCALE = {
   sunRadius: 3.2,
   shaftRadius: 0.3,
-  shaftTop: 9,
-  shaftBottom: -9,
+  shaftTop: 6.6,
+  shaftBottom: -4.4,
   baseHubRadius: 5.2,
+
+  // Ekliptik duzlem (Dunya'nin yorungesi) y = 0'dadir; takvim halkasi
+  // referans modeldeki gibi bunun biraz altinda, taban seviyesinde durur.
+  ringY: -3.4,
 
   orbitRadius: 24,      // takvim halkasi = Dunya'nin yorunge yaricapi
   ringInner: 21.6,

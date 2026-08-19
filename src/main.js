@@ -5,6 +5,11 @@ import { SCALE, COLORS } from './config.js';
 import { createSun } from './scene/sun.js';
 import { createCalendarRing } from './scene/calendarRing.js';
 import { createStarfield } from './scene/starfield.js';
+import { createEarthMoonArm } from './scene/earthMoonArm.js';
+import { loadTextures } from './scene/textures.js';
+import {
+  earthEcliptic, moonEcliptic, earthRotationDeg, moonPhaseInfo, seasonName,
+} from './astro/calculations.js';
 
 const canvas = document.getElementById('scene');
 const loading = document.getElementById('loading');
@@ -32,12 +37,12 @@ controls.dampingFactor = 0.07;
 controls.enablePan = false;
 controls.minDistance = 12;
 controls.maxDistance = 140;
-controls.minPolarAngle = 6 * (Math.PI / 180);   // neredeyse tepeden
-controls.maxPolarAngle = 96 * (Math.PI / 180);  // yatayin biraz altina kadar
+controls.minPolarAngle = 6 * (Math.PI / 180);
+controls.maxPolarAngle = 96 * (Math.PI / 180);
 controls.rotateSpeed = 0.75;
 controls.zoomSpeed = 0.8;
 
-// --- Sahne icerigi ---------------------------------------------------------
+// --- Sabit sahne icerigi ---------------------------------------------------
 const starfield = createStarfield();
 starfield.setPixelRatio(pixelRatio);
 scene.add(starfield.points);
@@ -46,12 +51,72 @@ const sun = createSun();
 scene.add(sun.group);
 
 const calendarRing = createCalendarRing(new Date().getUTCFullYear());
+calendarRing.group.position.y = SCALE.ringY;
 scene.add(calendarRing.group);
 
-// Gunes'in ulasamadigi yuzeylerin tamamen siyah kalmamasi icin cok hafif
-// ortam isigi; mekanik parcalarin okunmasini saglar.
 scene.add(new THREE.AmbientLight(0x2a3550, 0.55));
 scene.add(new THREE.HemisphereLight(0x4a5f8a, 0x0a0d14, 0.35));
+
+// --- Uygulama durumu -------------------------------------------------------
+const state = {
+  date: new Date(),
+  /** Son hesaplanan astronomik degerler (bilgi paneli bunlari okur). */
+  readout: null,
+};
+
+/** Sahne guncellendiginde tetiklenen dinleyiciler (UI bunlara abone olur). */
+const listeners = new Set();
+export function onUpdate(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+
+let earthMoonArm = null;
+
+function applyDate(date) {
+  state.date = date;
+
+  const earth = earthEcliptic(date);
+  const moon = moonEcliptic(date);
+  const rotation = earthRotationDeg(date);
+  const phase = moonPhaseInfo(date);
+
+  calendarRing.setYear(date.getUTCFullYear());
+
+  earthMoonArm?.update({
+    earthLongitude: earth.longitude,
+    earthRotationDeg: rotation,
+    moonVec: moon.vec,
+    moonDistanceRatio: moon.distanceRatio,
+  });
+
+  state.readout = {
+    date,
+    earth,
+    moon,
+    rotation,
+    phase,
+    season: seasonName(date),
+    month: calendarRing.monthAt(earth.longitude),
+  };
+
+  for (const fn of listeners) fn(state.readout);
+}
+
+export function setDate(date) { applyDate(date); }
+export function getState() { return state; }
+
+// --- Texture yuklendikten sonra Dunya + Ay ---------------------------------
+const { textures, ready } = loadTextures();
+
+ready
+  .then(() => {
+    earthMoonArm = createEarthMoonArm(textures);
+    scene.add(earthMoonArm.group);
+    applyDate(state.date);
+    loading.classList.add('hidden');
+  })
+  .catch((err) => {
+    console.error(err);
+    loading.textContent = 'Texture yüklenemedi: ' + err.message;
+  });
 
 // --- Boyutlandirma ---------------------------------------------------------
 function resize() {
@@ -71,10 +136,10 @@ function animate() {
 }
 renderer.setAnimationLoop(animate);
 
-// Ilk kare cizildikten sonra yukleme perdesini kaldir.
-requestAnimationFrame(() => requestAnimationFrame(() => loading.classList.add('hidden')));
-
 // Gelistirme sirasinda konsoldan incelemek icin.
 if (import.meta.env.DEV) {
-  window.__orrery = { scene, camera, controls, renderer, sun, calendarRing, SCALE };
+  window.__orrery = {
+    scene, camera, controls, renderer, sun, calendarRing, SCALE, state,
+    setDate, get arm() { return earthMoonArm; },
+  };
 }

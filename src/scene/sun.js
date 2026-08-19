@@ -24,7 +24,7 @@ export function createSun() {
   const collarMat = new THREE.MeshStandardMaterial({
     color: COLORS.accent, metalness: 0.6, roughness: 0.4,
   });
-  for (const y of [SCALE.shaftTop - 0.5, SCALE.shaftBottom + 0.5, SCALE.sunRadius + 0.9, -SCALE.sunRadius - 0.9]) {
+  for (const y of [SCALE.shaftTop - 0.5, SCALE.sunRadius + 0.9, -SCALE.sunRadius - 0.9]) {
     const collar = new THREE.Mesh(
       new THREE.CylinderGeometry(SCALE.shaftRadius * 1.7, SCALE.shaftRadius * 1.7, 0.28, 24),
       collarMat,
